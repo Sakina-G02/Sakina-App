@@ -8,12 +8,6 @@ Sakina is a privacy-preserving, real-time stress monitoring system built as a ca
 
 ---
 
-## What Is This Repo?
-
-This repository contains the **Flutter mobile application** for the Sakina project. The FL server, simulation clients, and training scripts live in a separate repository.
-
----
-
 ## How It Works
 
 1. The **ESP32** simulates BVP and temperature sensor data, runs a quantized TFLite MLP model locally, and sends the stress prediction to the phone over **Bluetooth Low Energy (BLE)**
