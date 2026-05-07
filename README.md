@@ -67,14 +67,6 @@ Also it displays the last training result (accuracy, loss, FL round) and lets yo
 </p>
 
 > Note that this page is for testing purposes (not for the user).
----
-
-### FL Local Training, Results and Server
-
-
-<p align="center">
-
-</p>
 
 ---
 
