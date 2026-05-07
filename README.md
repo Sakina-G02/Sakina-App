@@ -1,10 +1,10 @@
-# سَكينة — Sakina
+# سَكينة | Sakina
 ### Stress Monitoring using Federated Learning
 
 Sakina is a privacy-preserving, real-time stress monitoring system built as a capstone project (CPCS499). It combines edge AI inference on an ESP32 microcontroller with a Flutter mobile application and a Federated Learning pipeline, all without sharing raw physiological data with any server.
 
-> **Group C02** — Tariq Areesh | Majd Al-farasani
-> King Abdulaziz University — Computer Science
+> **Group C02** | Tariq Areesh | Majd Al-farasani
+> King Abdulaziz University | Computer Science
 
 ---
 
@@ -18,7 +18,7 @@ This repository contains the **Flutter mobile application** for the Sakina proje
 
 1. The **ESP32** simulates BVP and temperature sensor data, runs a quantized TFLite MLP model locally, and sends the stress prediction to the phone over **Bluetooth Low Energy (BLE)**
 2. The **Flutter app** connects to the ESP32 via BLE, shows real-time health data, and quietly collects training samples in the background
-3. The app fine-tunes the model locally on the user's own data using **on-device FL training** — no raw data ever leaves the phone
+3. The app fine-tunes the model locally on the user's own data using **on-device FL training** | no raw data ever leaves the phone
 4. The locally trained weights are pushed to a central **Flower FL server** via a simple REST API, and the updated global model can be pulled back to the app at any time
 
 ---
