@@ -55,20 +55,24 @@ A searchable and filterable log of all past stress readings with timestamps, sco
 
 ---
 
-### FL Local Training, Data and Settings
+### FL Local Training
 Shows collected BLE training samples broken down by Normal and Stressed labels, window accumulation progress, and training settings like epochs, learning rate, and batch size.
+
+Also it displays the last training result (accuracy, loss, FL round) and lets you push local weights to the Flower FL server or pull the latest global model.
 
 <p align="center">
 <img src="screenshots/fl_training.jpg" width="280"/>
+  &nbsp;&nbsp;&nbsp;
+<img src="screenshots/fl_server.png" width="280"/>
 </p>
 
 ---
 
 ### FL Local Training, Results and Server
-Displays the last training result (accuracy, loss, FL round) and lets you push local weights to the Flower FL server or pull the latest global model.
+
 
 <p align="center">
-<img src="screenshots/fl_server.png" width="280"/>
+
 </p>
 
 ---
