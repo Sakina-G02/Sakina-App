@@ -1,65 +1,81 @@
 # سَكينة — Sakina
 ### Stress Monitoring using Federated Learning
 
-Sakina is a privacy-preserving, real-time stress monitoring system built as a capstone project (CPCS499). It combines edge AI inference on an ESP32 microcontroller, a cross-platform Flutter mobile application, and a Federated Learning server powered by Flower (flwr) — all without sharing raw physiological data.
+Sakina is a privacy-preserving, real-time stress monitoring system built as a capstone project (CPCS499). It combines edge AI inference on an ESP32 microcontroller with a Flutter mobile application and a Federated Learning pipeline, all without sharing raw physiological data with any server.
 
-> **Group C02** — Tariq Areesh | Majd Al-farasani  
+> **Group C02** — Tariq Areesh | Majd Al-farasani
 > King Abdulaziz University — Computer Science
+
+---
+
+## What Is This Repo?
+
+This repository contains the **Flutter mobile application** for the Sakina project. The FL server, simulation clients, and training scripts live in a separate repository.
 
 ---
 
 ## How It Works
 
-1. The **ESP32** simulates BVP and temperature sensor data, runs a quantized TFLite MLP model locally, and broadcasts the stress prediction over **Bluetooth Low Energy (BLE)**
-2. The **Flutter app** connects to the ESP32 via BLE, displays real-time health data, and collects training samples
-3. The app fine-tunes the model locally on the user's own data (**on-device FL training**)
-4. Updated weights are pushed to a central **Flower FL server** for privacy-preserving aggregation using the **FedAdam** strategy — no raw data ever leaves the device
+1. The **ESP32** simulates BVP and temperature sensor data, runs a quantized TFLite MLP model locally, and sends the stress prediction to the phone over **Bluetooth Low Energy (BLE)**
+2. The **Flutter app** connects to the ESP32 via BLE, shows real-time health data, and quietly collects training samples in the background
+3. The app fine-tunes the model locally on the user's own data using **on-device FL training** — no raw data ever leaves the phone
+4. The locally trained weights are pushed to a central **Flower FL server** via a simple REST API, and the updated global model can be pulled back to the app at any time
 
 ---
 
 ## App Screenshots
 
 ### Connect Page
-Scan for nearby BLE devices, select the ESP32, and establish a connection.
+Scan for nearby BLE devices, pick the ESP32, and connect.
 
+<p align="center">
 <img src="screenshots/connect.png" width="280"/>
+</p>
 
 ---
 
 ### Home Page
-Displays the connected device name, current stress status, health advice, skin temperature, and heart rate in real-time.
+Shows the connected device name, current stress status, health advice, skin temperature, and heart rate in real time.
 
+<p align="center">
 <img src="screenshots/home.png" width="280"/>
+</p>
 
 ---
 
 ### Health Dashboard
-Live scrolling charts for Blood Volume Pulse (BVP) and Body Temperature, updated as data streams in over BLE.
+Live scrolling charts for Blood Volume Pulse (BVP) and Body Temperature that update as data streams in over BLE.
 
+<p align="center">
 <img src="screenshots/dashboard.png" width="280"/>
+</p>
 
 ---
 
 ### Stress History
 A searchable and filterable log of all past stress readings with timestamps, score, HR, and temperature.
 
+<p align="center">
 <img src="screenshots/history.png" width="280"/>
+</p>
 
 ---
 
-### FL Local Training — Data & Settings
-Visualizes collected BLE training samples (Normal vs Stressed), window accumulation progress, and training hyperparameters (epochs, learning rate, batch size).
+### FL Local Training, Data and Settings
+Shows collected BLE training samples broken down by Normal and Stressed labels, window accumulation progress, and training settings like epochs, learning rate, and batch size.
 
+<p align="center">
 <img src="screenshots/fl_training.jpg" width="280"/>
+</p>
 
 ---
 
-### FL Local Training — Results & Server
-Shows the last training result (accuracy, loss, FL round) and allows pushing local weights to the Flower FL server or pulling the latest global model.
+### FL Local Training, Results and Server
+Displays the last training result (accuracy, loss, FL round) and lets you push local weights to the Flower FL server or pull the latest global model.
 
-> ⚠️ Server URL blurred for privacy.
-
+<p align="center">
 <img src="screenshots/fl_server.png" width="280"/>
+</p>
 
 ---
 
@@ -70,10 +86,9 @@ Shows the last training result (accuracy, loss, FL round) and allows pushing loc
 | Edge Device | ESP32 + TensorFlow Lite Micro (INT8) |
 | Mobile App | Flutter (Dart) |
 | BLE Communication | flutter_blue_plus |
-| On-Device Training | Pure Dart MLP (5 → 64 → 32 → 1) |
-| FL Server | Flower (flwr) + Flask REST API |
+| On-Device Training | Pure Dart MLP (5 to 64 to 32 to 1) |
+| FL Server Communication | HTTP REST API (Flask) |
 | FL Strategy | FedAdam |
-| Dataset | WESAD (17 subjects) + 10,000-subject synthetic cGAN |
 | Model Accuracy | ~96% on expanded WESAD dataset |
 
 ---
@@ -82,22 +97,17 @@ Shows the last training result (accuracy, loss, FL round) and allows pushing loc
 
 ```
 lib/
-├── main.dart               # App entry point
-├── appShell.dart           # Bottom nav + BLE state management
-├── homePage.dart           # Home screen
-├── healthDashboardPage.dart# Live BVP & temp charts
-├── stressHistoryPage.dart  # History log with search & filter
-├── blu.dart                # BLE scan, connect, receive logic
-├── fl_local_trainer.dart   # On-device FL training (Dart MLP)
-└── fl_training_page.dart   # FL training UI
+├── main.dart                  # App entry point
+├── appShell.dart              # Bottom nav + BLE state management
+├── homePage.dart              # Home screen
+├── healthDashboardPage.dart   # Live BVP and temp charts
+├── stressHistoryPage.dart     # History log with search and filter
+├── blu.dart                   # BLE scan, connect, receive logic
+├── fl_local_trainer.dart      # On-device FL training (Dart MLP)
+└── fl_training_page.dart      # FL training UI
 
 assets/
-└── sakina_initial_weights.json  # Pre-trained Keras weights (float32)
-
-Sakina-Server/
-├── server.py               # Flower FL server + Flask REST bridge
-├── client.py               # WESAD simulation client
-└── run_clients.bat         # Launch all 15 WESAD clients at once
+└── sakina_initial_weights.json   # Pre-trained Keras weights (float32)
 ```
 
 ---
@@ -107,23 +117,18 @@ Sakina-Server/
 ### Prerequisites
 
 - Flutter SDK (3.x)
-- Android device with Bluetooth (API 23+), developer mode enabled
-- Python 3.10+ (for the FL server)
+- Android device with Bluetooth (API 23+) and developer mode enabled
 - An ESP32 flashed with the Sakina firmware
+- The Flower FL server running (see the server repo) if you want to use the FL features
 
 ---
 
-### 1. Flutter App
+### 1. Clone and Run
 
 ```bash
-# Clone the repo
-git clone https://github.com/tariq-areesh/Sakina-App.git
+git clone https://github.com/Sakina-G02/Sakina-App.git
 cd Sakina-App
-
-# Install dependencies
 flutter pub get
-
-# Run on connected Android device
 flutter run
 ```
 
@@ -137,63 +142,29 @@ flutter:
 
 ---
 
-### 2. FL Server
+### 2. Connect to the FL Server
 
-```bash
-cd Sakina-Server
+The app communicates with the Flower FL server through two REST endpoints:
 
-# Install dependencies
-pip install flwr tensorflow flask numpy
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/global_model` | GET | Download the latest aggregated global model weights |
+| `/api/local_update` | POST | Upload locally trained weights to the server |
 
-# Start the server (FedAdam, port 8080 for Flower / port 5050 for REST)
-python server.py
-```
+To connect:
 
----
-
-### 3. Simulation Clients (WESAD dataset)
-
-Place the WESAD dataset under `Sakina-Server/WESAD/` with the structure:
-```
-WESAD/
-├── S2/S2.pkl
-├── S3/S3.pkl
-...
-└── S17/S17.pkl   (S12 excluded)
-```
-
-Then run all 15 clients at once:
-```bash
-run_clients.bat
-```
-
----
-
-### 4. Connect Flutter App to FL Server
-
-1. Find your PC's local IP: run `ipconfig` on Windows, look for IPv4 under WiFi
-2. In the app → **Train** tab → enter `http://<your-ip>:5050` as the server URL
-3. Tap **Pull global model** to download weights, **Push local weights** to upload after training
-
----
-
-## FL Strategy Comparison
-
-| Strategy | Epoch 3 / 100 Rounds — Accuracy | Recall |
-|----------|----------------------------------|--------|
-| FedAvg | 0.883 | 0.625 |
-| FedProx | 0.880 | 0.607 |
-| FedAdagrad | 0.857 | 0.735 |
-| FedYogi | 0.728 | 0.990 |
-| **FedAdam** ✓ | **0.819** | **0.826** |
-
-FedAdam was selected for providing the most balanced accuracy and recall — avoiding the false high-accuracy / low-recall trap seen in FedAvg and FedProx.
+1. Start the FL server on your PC (see the server repo)
+2. Make sure your phone and PC are on the same WiFi network
+3. In the app, go to the **Train** tab
+4. Enter your PC's local IP as the server URL: `http://<your-ip>:5050`
+5. Tap **Pull global model** to load the latest weights
+6. After local training completes, tap **Push local weights** to contribute to the global model
 
 ---
 
 ## Privacy Design
 
-- Raw physiological data **never leaves the device**
-- Only model weight updates (gradients) are shared with the server
+- Raw physiological data never leaves the device
+- Only model weight updates are shared with the server, not the sensor readings themselves
 - The FL server aggregates updates without seeing any user data
-- On-device inference on the ESP32 means no cloud dependency for predictions
+- Inference runs entirely on the ESP32, so there is no cloud dependency for stress predictions
