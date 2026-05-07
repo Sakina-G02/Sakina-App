@@ -1,10 +1,11 @@
-// fl_local_trainer.dart  (v3 — pure Dart, no tflite_flutter)
+// fl_local_trainer.dart  (v4 — fixed weight transpose for pre-trained asset)
 //
 // Architecture: 5 → 64 → 32 → 1  (confirmed from mlp_cgan_noHR_focal_classweight.h5)
 //
-// Training backend: pure Dart backprop running in a background isolate.
-// Initial weights loaded from assets/sakina_initial_weights.json (pre-trained Keras
-// weights exported by export_for_fl.py) so fine-tuning starts from a strong baseline.
+// BUG FIXED: sakina_initial_weights.json stores kernels in Keras format [fanIn][fanOut]
+// but Dart MLP expects [fanOut][fanIn]. _tryLoadPretrainedWeights now transposes
+// each kernel on load. importWeights (from FL server) is unchanged — the server's
+// keras_weights_to_dart() already sends them in Dart format.
 //
 // pubspec.yaml dependencies needed:
 //   shared_preferences: ^2.2.0
@@ -215,6 +216,7 @@ class FLLocalTrainer {
   List<TrainingSample> _dataset = [];
 
   // MLP weights — shape: W[l] is [layerSizes[l+1]][layerSizes[l]]
+  // i.e. [fanOut][fanIn] — rows are output neurons, columns are inputs
   List<List<List<double>>> _weights = [];
   List<List<double>>       _biases  = [];
 
@@ -237,16 +239,36 @@ class FLLocalTrainer {
   }
 
   /// Load sakina_initial_weights.json from assets.
-  /// Format: {"w0k": [[...]], "w0b": [...], "w1k": ..., "w1b": ..., "w2k": ..., "w2b": ...}
+  ///
+  /// IMPORTANT: The JSON is exported by export_for_fl.py in Keras convention
+  /// where kernels have shape [fanIn][fanOut], e.g. w0k is (5, 64).
+  /// The Dart MLP uses [fanOut][fanIn], e.g. W[0] is (64, 5).
+  /// So every kernel must be transposed on load.
+  ///
+  /// importWeights() (used for FL server updates) does NOT transpose because
+  /// the server's keras_weights_to_dart() already sends them in Dart format.
   Future<bool> _tryLoadPretrainedWeights() async {
     try {
       final raw  = await rootBundle.loadString('assets/sakina_initial_weights.json');
       final json = jsonDecode(raw) as Map<String, dynamic>;
-      _weightsFromFlatJson(json);
-      debugPrint('[FLLocalTrainer] Loaded pre-trained weights from asset');
+
+      _weights = [
+        _transposeMatrix(_parseMatrix(json['w0k'])),  // (5, 64)  → (64, 5)
+        _transposeMatrix(_parseMatrix(json['w1k'])),  // (64, 32) → (32, 64)
+        _transposeMatrix(_parseMatrix(json['w2k'])),  // (32, 1)  → (1,  32)
+      ];
+      _biases = [
+        _parseVector(json['w0b']),  // (64,)
+        _parseVector(json['w1b']),  // (32,)
+        _parseVector(json['w2b']),  // (1,)
+      ];
+
+      debugPrint('[FLLocalTrainer] Loaded pre-trained weights from asset '
+                 '(transposed from Keras format)');
       return true;
     } catch (e) {
-      debugPrint('[FLLocalTrainer] Could not load pre-trained weights ($e) — using Xavier init');
+      debugPrint('[FLLocalTrainer] Could not load pre-trained weights ($e) '
+                 '— using Xavier init');
       return false;
     }
   }
@@ -384,25 +406,29 @@ class FLLocalTrainer {
   //   "architecture": [5, 64, 32, 1],
   //   "num_samples": 87,
   //   "label_distribution": {"stressed": 40, "normal": 47},
-  //   "w0k": [[...5 x 64...]],   "w0b": [...64...],
-  //   "w1k": [[...64 x 32...]],  "w1b": [...32...],
-  //   "w2k": [[...32 x 1...]],   "w2b": [...1...]
+  //   "w0k": [[...64 x 5...]],   "w0b": [...64...],   ← Dart format [fanOut][fanIn]
+  //   "w1k": [[...32 x 64...]],  "w1b": [...32...],
+  //   "w2k": [[...1  x 32...]],  "w2b": [...1...]
   // }
+  //
+  // The server's keras_weights_to_dart() transposes before sending so these
+  // arrive already in Dart [fanOut][fanIn] format — no transpose needed here.
 
   Map<String, dynamic> exportWeights() => {
     'round':        _flRound,
     'architecture': layerSizes,
     'num_samples':  _dataset.length,
     'label_distribution': {'stressed': stressedCount, 'normal': normalCount},
-    'w0k': _weights[0],   // (64, 5)  — Dense(64) kernel transposed from TF convention
-    'w0b': _biases[0],
+    'w0k': _weights[0],   // (64, 5)
+    'w0b': _biases[0],    // (64,)
     'w1k': _weights[1],   // (32, 64)
-    'w1b': _biases[1],
+    'w1b': _biases[1],    // (32,)
     'w2k': _weights[2],   // (1, 32)
-    'w2b': _biases[2],
+    'w2b': _biases[2],    // (1,)
   };
 
   /// Apply weights from the FL server (aggregated global model).
+  /// Server sends kernels in Dart format [fanOut][fanIn] — no transpose needed.
   void importWeights(Map<String, dynamic> json) {
     if (json.containsKey('round')) _flRound = (json['round'] as num).toInt();
     if (json.containsKey('w0k')) {
@@ -431,13 +457,6 @@ class FLLocalTrainer {
       _parseVector(json['w2b']),
     ];
   }
-
-  static List<List<double>> _parseMatrix(dynamic raw) =>
-      (raw as List).map((row) =>
-          (row as List).map((e) => (e as num).toDouble()).toList()).toList();
-
-  static List<double> _parseVector(dynamic raw) =>
-      (raw as List).map((e) => (e as num).toDouble()).toList();
 
   // ── Persistence ───────────────────────────────────────────────────────────
 
@@ -496,6 +515,22 @@ class FLLocalTrainer {
     for (final x in v) { final d = x - m; a += d * d; }
     return sqrt(a / v.length);
   }
+
+  /// Transpose a 2D matrix: [rows][cols] → [cols][rows]
+  static List<List<double>> _transposeMatrix(List<List<double>> m) {
+    if (m.isEmpty || m[0].isEmpty) return m;
+    final rows = m.length;
+    final cols = m[0].length;
+    return List.generate(cols, (j) =>
+        List.generate(rows, (i) => m[i][j]));
+  }
+
+  static List<List<double>> _parseMatrix(dynamic raw) =>
+      (raw as List).map((row) =>
+          (row as List).map((e) => (e as num).toDouble()).toList()).toList();
+
+  static List<double> _parseVector(dynamic raw) =>
+      (raw as List).map((e) => (e as num).toDouble()).toList();
 
   // ── Getters ───────────────────────────────────────────────────────────────
 

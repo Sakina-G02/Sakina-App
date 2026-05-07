@@ -66,7 +66,6 @@ flutter:
 
 
   assets:
-    - assets/sakina_fl_training.tflite
     - assets/sakina_initial_weights.json
 
   fonts:
