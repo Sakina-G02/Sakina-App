@@ -1,5 +1,5 @@
 # سَكينة | Sakina
-### Stress Monitoring using Federated Learning
+### Stress Monitoring Using Federated Learning
 
 Sakina is a privacy-preserving, real-time stress monitoring system built as a capstone project (CPCS499). It combines edge AI inference on an ESP32 microcontroller with a Flutter mobile application and a Federated Learning pipeline, all without sharing raw physiological data with any server.
 
